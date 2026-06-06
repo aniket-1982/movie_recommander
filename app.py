@@ -39,14 +39,34 @@ def fetch_poster(movie_title):
 
 # ── Fetch latest popular movies from TMDB ──
 @st.cache_data
-def fetch_popular_movies():
-    movies_list = []
-    for page in range(1, 6):  # fetch 5 pages = ~100 movies
-        url = f"https://api.themoviedb.org/3/movie/popular"
-        params = {"api_key": TMDB_API_KEY, "page": page}
-        res = requests.get(url, params=params).json()
-        movies_list.extend(res.get('results', []))
-    return movies_list
+def fetch_poster(movie_title):
+    try:
+        # Clean the title — remove year like "(1995)" from the end
+        import re
+        clean_title = re.sub(r'\(\d{4}\)', '', movie_title).strip()
+        # Also handle titles like "The, Matrix" → "The Matrix"
+        if ', The' in clean_title:
+            clean_title = 'The ' + clean_title.replace(', The', '')
+        if ', A ' in clean_title:
+            clean_title = 'A ' + clean_title.replace(', A ', ' ')
+
+        url = "https://api.themoviedb.org/3/search/movie"
+        params = {"api_key": TMDB_API_KEY, "query": clean_title}
+        response = requests.get(url, params=params, timeout=5)
+        data = response.json()
+        if data['results']:
+            poster_path = data['results'][0].get('poster_path')
+            overview = data['results'][0].get('overview', 'No description available.')
+            vote = data['results'][0].get('vote_average', 0)
+            year = data['results'][0].get('release_date', '')[:4]
+            if poster_path:
+                return (
+                    f"https://image.tmdb.org/t/p/w500{poster_path}",
+                    overview, vote, year
+                )
+    except:
+        pass
+    return None, 'No description available.', 0, ''
 
 # ── Load & train ──
 @st.cache_resource
