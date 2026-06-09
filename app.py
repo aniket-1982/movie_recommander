@@ -72,4 +72,71 @@ def display_movies(movie_df, cols_count=5):
                 st.image("https://placehold.co/200x300?text=No+Poster", use_container_width=True)
             st.markdown(f"**{row.title}**")
             st.caption(f"⭐ {round(vote,1)} | 📅 {year}")
-            st.caption(f"🎭 {row.genres[:25]}..
+            st.caption(f"🎭 {row.genres[:25]}...")
+
+# ── UI ──
+st.title("🎬 Movie Recommendation System")
+st.markdown("Discover movies from **2010 to 2026** based on your favourite genres!")
+
+with st.spinner("Loading... ⏳"):
+    movies, cosine_sim = load_data()
+
+st.success(f"✅ Ready! {len(movies)} movies from 2010–2026 loaded!")
+
+tab1, tab2 = st.tabs(["🎯 Find Movies", "🔥 Popular Now"])
+
+with tab1:
+    st.markdown("### 🎭 Select genres you enjoy:")
+
+    all_genres = [
+        "Action", "Adventure", "Animation", "Children",
+        "Comedy", "Crime", "Documentary", "Drama",
+        "Fantasy", "Horror", "Musical", "Mystery",
+        "Romance", "Sci-Fi", "Thriller", "War", "Western"
+    ]
+
+    genre_cols = st.columns(4)
+    selected_genres = []
+    for i, genre in enumerate(all_genres):
+        with genre_cols[i % 4]:
+            if st.checkbox(genre, key=f"genre_{genre}"):
+                selected_genres.append(genre)
+
+    st.markdown("---")
+
+    if st.button("🚀 Find Movies", use_container_width=True):
+        if not selected_genres:
+            st.warning("☝️ Please select at least one genre!")
+        else:
+            with st.spinner("Finding all matching movies..."):
+                filtered = movies[movies['genres'].apply(
+                    lambda g: any(genre in g for genre in selected_genres)
+                )].copy()
+
+                filtered['match_count'] = filtered['genres'].apply(
+                    lambda g: sum(1 for genre in selected_genres if genre in g)
+                )
+                # Sort by best match first, then newest first
+                filtered = filtered.sort_values(
+                    ['match_count', 'year'],
+                    ascending=[False, False]
+                )
+
+            st.markdown(f"### 🎬 All movies for: **{', '.join(selected_genres)}**")
+            display_movies(filtered)
+
+    if not selected_genres:
+        st.info("☝️ Select at least one genre above and click Find Movies!")
+
+with tab2:
+    st.markdown("### 🔥 Popular Movies Right Now")
+    with st.spinner("Fetching latest movies..."):
+        popular = fetch_popular_movies()
+    cols = st.columns(5)
+    for i, movie in enumerate(popular[:20]):
+        with cols[i % 5]:
+            poster_path = movie.get('poster_path')
+            if poster_path:
+                st.image(f"https://image.tmdb.org/t/p/w500{poster_path}", use_container_width=True)
+            st.markdown(f"**{movie['title']}**")
+            st.caption(f"⭐ {movie.get('vote_average',0)} | 📅 {movie.get('release_date','')[:4]}")
